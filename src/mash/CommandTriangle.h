@@ -1,9 +1,3 @@
-// Copyright © 2015, Battelle National Biodefense Institute (BNBI);
-// all rights reserved. Authored by: Brian Ondov, Todd Treangen,
-// Sergey Koren, and Adam Phillippy
-//
-// See the LICENSE.txt file included with this software for license information.
-
 #ifndef INCLUDED_CommandTriangle
 #define INCLUDED_CommandTriangle
 
@@ -19,13 +13,14 @@ public:
     
     struct TriangleInput
     {
-        TriangleInput(const Sketch & sketchNew, uint64_t indexNew, const Sketch::Parameters & parametersNew, double maxDistanceNew, double maxPValueNew)
+        TriangleInput(const Sketch & sketchNew, uint64_t indexNew, const Sketch::Parameters & parametersNew, double maxDistanceNew, double maxPValueNew, bool isFingerprintNew)
             :
             sketch(sketchNew),
             index(indexNew),
             parameters(parametersNew),
             maxDistance(maxDistanceNew),
-            maxPValue(maxPValueNew)
+            maxPValue(maxPValueNew),
+            isFingerprint(isFingerprintNew)
             {}
         
         const Sketch & sketch;
@@ -33,6 +28,7 @@ public:
         const Sketch::Parameters & parameters;
         double maxDistance;
         double maxPValue;
+        bool isFingerprint;
     };
     
     struct TriangleOutput
@@ -57,19 +53,23 @@ public:
     };
     
     CommandTriangle();
+
+
     
-    int run() const; // override
+    int run() const override;
     
 private:
     
     double pValueMax;
     bool comment;
-    
     void writeOutput(TriangleOutput * output, bool comment, bool edge, double & pValuePeakToSet) const;
+
 };
 
-CommandTriangle::TriangleOutput * compare(CommandTriangle::TriangleInput * input);
-
+    CommandTriangle::TriangleOutput * compare(CommandTriangle::TriangleInput * input);
+    void compareFingerprints(CommandDistance::CompareOutput::PairOutput * pair, const Sketch::Reference & ref1, const Sketch::Reference & ref2, uint64_t sketchSize, double maxDistance, double maxPValue);
+    bool containsExtensionMSH(const std::vector<std::string>& strVec) ;
+    bool containsExtensionTXT(const std::vector<std::string>& strVec) ;
 } // namespace mash
 
 #endif

@@ -30,51 +30,34 @@ CommandSketch::CommandSketch()
     addOption("id", Option(Option::File, "I", "Sketch", "ID field for sketch of reads (instead of first sequence ID).", ""));
     addOption("comment", Option(Option::File, "C", "Sketch", "Comment for a sketch of reads (instead of first sequence comment).", ""));
     addOption("counts", Option(Option::Boolean, "M", "Sketch", "Store multiplicity of each k-mer in each sketch.", ""));
+    addOption("fingerprint", Option(Option::Boolean, "fp", "Input", "Indicates that the input files are fingerprints instead of sequences.", "")); // Aggiunto
     useSketchOptions();
 }
 
 int CommandSketch::run() const
 {
-    if ( arguments.size() == 0 || options.at("help").active )
+    if (arguments.size() == 0 || options.at("help").active)
     {
         print();
         return 0;
     }
-    
-    int verbosity = 1;//options.at("silent").active ? 0 : options.at("verbose").active ? 2 : 1;
+
+    int verbosity = 1; // options.at("silent").active ? 0 : options.at("verbose").active ? 2 : 1;
     bool list = options.at("list").active;
-    
+    bool fingerprint = options.at("fingerprint").active; // Nuova opzione
+
     Sketch::Parameters parameters;
-    
     parameters.counts = options.at("counts").active;
-    
-    if ( sketchParameterSetup(parameters, *(Command *)this) )
+
+    if (sketchParameterSetup(parameters, *(Command *)this))
     {
-    	return 1;
+        return 1;
     }
-    
-    for ( int i = 0; i < arguments.size(); i++ )
-    {
-        if ( false && hasSuffix(arguments[i], suffixSketch) )
-        {
-            cerr << "ERROR: " << arguments[i] << " looks like it is already sketched." << endl;
-            exit(1);
-        }
-    }
-    
-    Sketch sketch;
-    
-    uint64_t lengthMax;
-    double randomChance;
-    int kMin;
-    string lengthMaxName;
-    int warningCount = 0;
-    
+
     vector<string> files;
-    
-    for ( int i = 0; i < arguments.size(); i++ )
+    for (int i = 0; i < arguments.size(); i++)
     {
-        if ( list )
+        if (list)
         {
             splitFile(arguments[i], files);
         }
@@ -83,63 +66,40 @@ int CommandSketch::run() const
             files.push_back(arguments[i]);
         }
     }
-    
-    if ( getOption("id").active || getOption("comment").active )
+
+    Sketch sketch;
+
+    if (parameters.reads)
     {
-    	if ( files.size() > 1 && ! parameters.reads )
-    	{
-    		cerr << "WARNING: -I and -C will only apply to first sketch" << endl;
-    	}
+        sketch.initFromReads(files, parameters);
     }
-    
-    if ( parameters.reads )
+    else if (fingerprint)
     {
-    	sketch.initFromReads(files, parameters);
+        sketch.initFromFingerprints(files, parameters); // Nuova funzione per fingerprint
     }
     else
     {
-	    sketch.initFromFiles(files, parameters, verbosity);
-	}
-	
-	if ( getOption("id").active )
-	{
-		sketch.setReferenceName(0, getOption("id").argument);
-	}
-    
-	if ( getOption("comment").active )
-	{
-		sketch.setReferenceComment(0, getOption("comment").argument);
-	}
-    
-    double lengthThreshold = (parameters.warning * sketch.getKmerSpace()) / (1. - parameters.warning);
-    
-	for ( int i = 0; i < sketch.getReferenceCount(); i++ )
-	{
-		uint64_t length = sketch.getReference(i).length;
-		
-		if ( length > lengthThreshold )
-		{
-			if ( warningCount == 0 || length > lengthMax )
-			{
-				lengthMax = length;
-				lengthMaxName = sketch.getReference(i).name;
-				randomChance = sketch.getRandomKmerChance(i);
-				kMin = sketch.getMinKmerSize(i);
-			}
-			
-			warningCount++;
-		}
-	}
-	
+        sketch.initFromFiles(files, parameters, verbosity);
+    }
+
+    if (getOption("id").active)
+    {
+        sketch.setReferenceName(0, getOption("id").argument);
+    }
+
+    if (getOption("comment").active)
+    {
+        sketch.setReferenceComment(0, getOption("comment").argument);
+    }
+
     string prefix;
-    
-    if ( options.at("prefix").argument.length() > 0 )
+    if (options.at("prefix").argument.length() > 0)
     {
         prefix = options.at("prefix").argument;
     }
     else
     {
-        if ( arguments[0] == "-" )
+        if (arguments[0] == "-")
         {
             prefix = "stdin";
         }
@@ -148,23 +108,16 @@ int CommandSketch::run() const
             prefix = arguments[0];
         }
     }
-    
+
     string suffix = parameters.windowed ? suffixSketchWindowed : suffixSketch;
-    
-    if ( ! hasSuffix(prefix, suffix) )
+    if (!hasSuffix(prefix, suffix))
     {
         prefix += suffix;
     }
-    
+
     cerr << "Writing to " << prefix << "..." << endl;
-    
     sketch.writeToCapnp(prefix.c_str());
-    
-    if ( warningCount > 0 && ! parameters.reads )
-    {
-    	warnKmerSize(parameters, *this, lengthMax, lengthMaxName, randomChance, kMin, warningCount);
-    }
-    
+
     return 0;
 }
 

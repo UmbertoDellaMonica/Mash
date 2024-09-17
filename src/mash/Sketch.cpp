@@ -25,9 +25,16 @@
 #include <math.h>
 #include <list>
 #include <string.h>
+#include <fstream>
+#include <sstream>
+#include <numeric>
+
+
+
 
 #define SET_BINARY_MODE(file)
 #define CHUNK 16384
+#define LIMIT_READ_FINGERPRINT 1000000
 KSEQ_INIT(gzFile, gzread)
 
 using namespace std;
@@ -44,6 +51,106 @@ void Sketch::getAlphabetAsString(string & alphabet) const
 		}
 	}
 }
+
+
+void Sketch::initFromFingerprints(const vector<string> &files, const Parameters &parametersNew)
+{
+    parameters = parametersNew;
+    
+    int counterLine = 0;
+    robin_hood::unordered_set<string> processedIDs; // Usare unordered_set per ID unici
+                                                     // Vettore per memorizzare le reference finali
+    string lastID = ""; // Memorizza l'ultimo ID letto
+
+    cout << "Initializing from fingerprints..." << endl;
+
+    for (const string &file : files)
+    {
+        cout << "Processing file: " << file << endl;
+
+        ifstream inputFile(file);
+
+        if (!inputFile)
+        {
+            cerr << "ERROR: Could not open fingerprint file " << file << " for reading." << endl;
+            exit(1);
+        }
+
+        string line;
+        Reference* currentReference = nullptr; // Puntatore alla reference corrente
+
+        while (getline(inputFile, line) && counterLine < LIMIT_READ_FINGERPRINT)
+        {
+            //cout << "Reading line: " << counterLine + 1 << endl;
+            counterLine++;
+
+            vector<uint64_t> fingerprint;
+
+            istringstream ss(line);
+            
+            uint64_t number;
+            string id;
+            ss >> id;
+
+            //cout << "Processing ID: " << id << endl;
+
+            while (ss >> number)
+            {
+                fingerprint.push_back(number);
+                if (ss.peek() == ' ') ss.ignore();
+            }
+
+            // Verifica se l'ID è diverso dall'ultimo ID
+            if (id != lastID)
+            {
+                // Nuovo ID, crea una nuova reference
+                if (currentReference != nullptr)
+                {
+                    //cout << "Adding reference for ID: " << lastID << endl;
+                    // Aggiungi la reference al vettore
+                    references.push_back(*currentReference);
+                    delete currentReference;
+                }
+
+                currentReference = new Reference;
+                currentReference->id = id; // Assegna l'ID estratto alla struttura Reference
+                currentReference->length = fingerprint.size(); // Numero di elementi nel fingerprint
+                currentReference->name = ""+id;
+                currentReference->comment = "FingerPrint : " + currentReference->id;
+                currentReference->hashesSorted.setUse64(parameters.use64);
+
+                // Aggiungi l'ID al set di ID processati
+                processedIDs.insert(id);
+
+                // Aggiorna l'ultimo ID
+                lastID = id;
+
+                //cout << "Created new reference for ID: " << id << endl;
+            }
+
+            // Calcola Hash in base64 
+            hash_u hash = getHashFingerPrint(fingerprint, fingerprint.size() * sizeof(uint64_t), parameters.seed, parameters.use64);
+            currentReference->hashesSorted.add(hash); // Usa il metodo add
+            currentReference->length = currentReference->length+fingerprint.size();
+
+            //cout << "Added hash for ID: " << id << endl;
+        }
+
+        if (currentReference != nullptr)
+        {
+            //cout << "Adding last reference for file: " << file << endl;
+            // Aggiungi l'ultima reference processata al vettore
+            references.push_back(*currentReference);
+            delete currentReference;
+        }
+    }
+
+    //cout << "Creating index..." << endl;
+    createIndex();
+    cout << "Initialization complete." << endl;
+}
+    
+
 
 const vector<Sketch::Locus> & Sketch::getLociByHash(Sketch::hash_t hash) const
 {
@@ -101,6 +208,43 @@ void Sketch::initFromReads(const vector<string> & files, const Parameters & para
 	
     createIndex();
 }
+
+
+/**
+ * Dettagli e Funzionamento della Funzione
+Inizializzazione dei Parametri:
+
+La funzione inizia assegnando i nuovi parametri ai parametri della classe Sketch.
+Creazione del Thread Pool:
+
+Un pool di thread viene creato per eseguire il lavoro in parallelo, migliorando le prestazioni durante il caricamento e la costruzione degli sketch.
+Iterazione sui File:
+
+La funzione itera attraverso ogni file fornito nella lista files.
+Verifica dei File di Sketch:
+
+Controlla se il file ha il suffisso giusto per essere considerato uno sketch.
+Se il file è uno sketch, vengono eseguiti diversi controlli sui parametri del file per assicurarsi che siano compatibili con i parametri attuali.
+Inizializzazione e Controllo dei Parametri del File:
+
+Inizializza lo sketch per testare i parametri.
+Se i parametri del file non corrispondono ai parametri attuali (come l'alfabeto, il seed, la dimensione del k-mer, ecc.), il file viene saltato con un messaggio di avvertimento.
+Gestione dei File di Input:
+
+Se il file non è uno sketch, viene letto e processato come input di sequenza.
+Se l'opzione concatenated è attiva, viene gestito di conseguenza.
+Viene utilizzato un thread pool per gestire il caricamento parallelo e il processamento dei file.
+Elaborazione dell'Output del Thread:
+
+Mentre il pool di thread è in esecuzione, la funzione raccoglie e utilizza l'output dai thread per costruire gli sketch.
+Creazione dell'Indice:
+
+Alla fine, viene creato un indice per gli sketch.
+
+La funzione initFromFiles è progettata per gestire in modo robusto l'inizializzazione degli sketch da una varietà di file, assicurando che i parametri siano coerenti e compatibili. 
+
+Utilizza un approccio multithread per migliorare le prestazioni durante il caricamento e la costruzione degli sketch. Se un file non rispetta i parametri attesi, viene saltato con un messaggio di avvertimento, garantendo che solo i file compatibili vengano inclusi nel processo di sketching.
+ */
 
 int Sketch::initFromFiles(const vector<string> & files, const Parameters & parametersNew, int verbosity, bool enforceParameters, bool contain)
 {
@@ -252,6 +396,8 @@ int Sketch::initFromFiles(const vector<string> & files, const Parameters & param
     return 0;
 }
 
+
+
 uint64_t Sketch::initParametersFromCapnp(const char * file)
 {
     int fd = open(file, O_RDONLY);
@@ -323,6 +469,12 @@ uint64_t Sketch::initParametersFromCapnp(const char * file)
 	return referenceCount;
 }
 
+
+
+
+
+
+
 bool Sketch::sketchFileBySequence(FILE * file, ThreadPool<Sketch::SketchInput, Sketch::SketchOutput> * threadPool)
 {
 	gzFile fp = gzdopen(fileno(file), "r");
@@ -383,7 +535,7 @@ bool Sketch::writeToFile() const
 
 int Sketch::writeToCapnp(const char * file) const
 {
-    int fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    int fd = open(file, O_CREAT | O_WRONLY | O_TRUNC , 0644);
     
     if ( fd < 0 )
     {
@@ -493,7 +645,7 @@ void Sketch::createIndex()
 {
     for ( int i = 0; i < references.size(); i++ )
     {
-        referenceIndecesById[references[i].name] = i;
+        referenceIndecesById[references[i].id] = i;
     }
     
     for ( int i = 0; i < positionHashesByReference.size(); i++ )

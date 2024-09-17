@@ -7,3 +7,9 @@
 /configure
 /libmash.a
 /mash
+.vscode/settings.json
+configure~
+test/genomes.json
+test/genomes.msh
+test/reads.json
+test/reads.msh

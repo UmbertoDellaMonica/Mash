@@ -21,6 +21,7 @@ public:
     int run() const; // override
 };
 
+
 } // namespace mash
 
 #endif

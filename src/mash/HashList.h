@@ -1,9 +1,3 @@
-// Copyright © 2015, Battelle National Biodefense Institute (BNBI);
-// all rights reserved. Authored by: Brian Ondov, Todd Treangen,
-// Sergey Koren, and Adam Phillippy
-//
-// See the LICENSE.txt file included with this software for license information.
-
 #ifndef HashList_h
 #define HashList_h
 
@@ -28,7 +22,16 @@ public:
     void push_back32(hash32_t hash) {hashes32.push_back(hash);}
     void push_back64(hash64_t hash) {hashes64.push_back(hash);}
     bool get64() const {return use64;}
-    
+
+    // Nuovo metodo add
+    void add(const hash_u& hash) {
+        if (use64) {
+            hashes64.push_back(hash.hash64);
+        } else {
+            hashes32.push_back(hash.hash32);
+        }
+    }
+
 private:
     
     bool use64;

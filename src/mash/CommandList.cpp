@@ -5,10 +5,12 @@
 // See the LICENSE.txt file included with this software for license information.
 
 #include <iostream>
-
-#include "CommandList.h"
 #include "version.h"
+#include "license.h"
+#include "CommandList.h"
 #include <string.h>
+
+
 
 using std::cout;
 using std::endl;
@@ -16,209 +18,116 @@ using std::string;
 
 namespace mash {
 
-CommandList::CommandList(string nameNew)
-{
+
+// Costruttore della classe CommandList
+// Inizializza il nome del comando con il valore fornito
+CommandList::CommandList(string nameNew){
+    
     name = nameNew;
 }
 
-CommandList::~CommandList()
-{
-    for ( std::map<string, Command *>::iterator i = commands.begin(); i != commands.end(); i++ )
-    {
-        delete i->second;
+// Distruttore della classe CommandList
+// Dealloca la memoria per tutti i comandi memorizzati nella mappa
+CommandList::~CommandList() {
+    // Itera su tutti gli elementi della mappa 'commands'
+    for (auto& commandPair : commands) {
+        // Libera la memoria allocata per il comando
+        delete commandPair.second;
     }
 }
 
-void CommandList::addCommand(Command * command)
-{
+// Aggiunge un nuovo comando alla lista dei comandi
+// Il comando viene memorizzato nella mappa 'commands' con il suo nome come chiave
+void CommandList::addCommand(Command* command) {
+    // Inserisce il comando nella mappa, utilizzando il nome del comando come chiave
     commands[command->name] = command;
 }
 
-void CommandList::print()
-{
-	using std::map;
-	using std::vector;
-	
+
+// Stampa le informazioni sulla versione e l'uso di Mash, 
+// insieme alla lista dei comandi disponibili e le loro descrizioni
+void CommandList::print() {
+    using std::map;
+    using std::vector;
+
+    // Crea una struttura per memorizzare le colonne da stampare
     vector<vector<string>> columns(1);
-    
-    cout << endl << "Mash version " << version << endl << endl;
-    
-    cout << "Type 'mash --license' for license and copyright information." << endl;
-    
-    cout << endl << "Usage:" << endl << endl;
-    
+
+    // Stampa la versione del software
+    cout << endl << "Mash version " << SOFTWARE_VERSION << endl << endl;
+    cout << "Type 'mash --license' for license and copyright information." << endl << endl;
+
+    // Stampa le istruzioni generali sull'uso
+    cout << "Usage:" << endl << endl;
     columns[0].push_back(name + " <command> [options] [arguments ...]");
     printColumns(columns);
-    
+
+    // Stampa l'intestazione per la sezione dei comandi
     cout << "Commands:" << endl << endl;
-    
+
+    // Trova la lunghezza massima del nome dei comandi per formattare l'output
     int lengthMax = 0;
-    
-    for ( map<string, Command *>::iterator i = commands.begin(); i != commands.end(); i++ )
-    {
-        if ( i->first.length() > lengthMax )
-        {
-            lengthMax = i->first.length();
-        }
+    for (const auto& commandPair : commands) {
+        lengthMax = std::max(lengthMax, static_cast<int>(commandPair.first.length()));
     }
-    
+
+    // Prepara le colonne per la stampa dei comandi e delle loro descrizioni
     columns.clear();
     columns.resize(2);
-    
-    for ( map<string, Command *>::iterator i = commands.begin(); i != commands.end(); i++ )
-    {
-        columns[0].push_back(i->first);
-        columns[1].push_back(i->second->summary);
+
+    // Aggiunge i comandi e le loro descrizioni alle colonne
+    for (const auto& commandPair : commands) {
+        columns[0].push_back(commandPair.first);
+        columns[1].push_back(commandPair.second->summary);
     }
-    
+
+    // Stampa le colonne dei comandi
     printColumns(columns);
 }
 
-int CommandList::run(int argc, const char ** argv)
-{
-	if ( argc > 1 && strcmp(argv[1], "--version") == 0 )
-	{
-		cout << version << endl;
-		return 0;
-	}
-	
-	if ( argc > 1 && strcmp(argv[1], "--license") == 0 )
-	{
-		showLicense();
-		return 0;
-	}
-	
-    if ( argc < 2 || commands.count(argv[1]) == 0 )
-    {
+int CommandList::run(int argc, const char** argv) {
+    // Check if the user requested the version
+    if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+        cout << SOFTWARE_VERSION << endl;
+        return 0;
+    }
+
+    // Check if the user requested the license information
+    if (argc > 1 && strcmp(argv[1], "--license") == 0) {
+        showLicense();
+        return 0;
+    }
+
+    // If no command is provided or the command is not found, display the usage information
+    if (argc < 2 || commands.find(argv[1]) == commands.end()) {
         print();
         return 0;
     }
-    
+
+    // Execute the command with its associated options and arguments
     return commands.at(argv[1])->run(argc - 2, argv + 2);
 }
 
-void CommandList::showLicense()
-{
-	cout << "\n\
-PURPOSE\n\
-\n\
-Mash is a fast sequence distance estimator that uses the MinHash\n\
-algorithm and is designed to work with genomes and metagenomes in the\n\
-form of assemblies or reads. It is implemented in C++ and is\n\
-distributed with:\n\
-\n\
-KSeq\n\
-  lh3lh3.users.sourceforge.net/kseq.shtml\n\
-  MIT License\n\
-\n\
-MurmurHash3\n\
-  code.google.com/p/smhasher/wiki/MurmurHash3\n\
-  Public domain\n\
-\n\
-Open Bloom Filter\n\
-  https://code.google.com/p/bloom/source/browse/trunk/bloom_filter.hpp\n\
-  Common Public License\n\
-\n\
-Robin_Hood Unordered Map and Set\n\
-  https://github.com/martinus/robin-hood-hashing\n\
-  MIT License\n\
-\n";
-#ifdef DIST_LICENSE
-	cout << "\n\
-This binary includes binary redistributions of software covered by\n\
-the Boost and MIT licenses, included below.\n\
-\n";
 
+void CommandList::showLicense() {
+    // Stampa lo scopo del software e le informazioni sulla sua distribuzione
+    cout << PURPOSE << endl;
+
+#ifdef DIST_LICENSE
+    // Stampa informazioni aggiuntive sulla licenza se DIST_LICENSE è definito
+    cout << ADDITIONAL_LICENSE_INFO << endl;
 #endif
 
-cout << "\n\
-COPYRIGHT LICENSE\n\
-\n\
-Copyright © 2015, Battelle National Biodefense Institute (BNBI);\n\
-all rights reserved. Authored by: Brian Ondov, Todd Treangen,\n\
-Sergey Koren, and Adam Phillippy\n\
-\n\
-This Software was prepared for the Department of Homeland Security\n\
-(DHS) by the Battelle National Biodefense Institute, LLC (BNBI) as\n\
-part of contract HSHQDC-07-C-00020 to manage and operate the National\n\
-Biodefense Analysis and Countermeasures Center (NBACC), a Federally\n\
-Funded Research and Development Center.\n\
-\n\
-Redistribution and use in source and binary forms, with or without\n\
-modification, are permitted provided that the following conditions are\n\
-met:\n\
-\n\
-1. Redistributions of source code must retain the above copyright\n\
-notice, this list of conditions and the following disclaimer.\n\
-\n\
-2. Redistributions in binary form must reproduce the above copyright\n\
-notice, this list of conditions and the following disclaimer in the\n\
-documentation and/or other materials provided with the distribution.\n\
-\n\
-3. Neither the name of the copyright holder nor the names of its\n\
-contributors may be used to endorse or promote products derived from\n\
-this software without specific prior written permission.\n\
-\n\
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS\n\
-\"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT\n\
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR\n\
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT\n\
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,\n\
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT\n\
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,\n\
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY\n\
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n\
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n\
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\
-\n";
+    // Stampa il copyright e le condizioni di licenza
+    cout << COPYRIGHT_LICENSE << endl;
 
 #ifdef DIST_LICENSE
-	cout << "\n\
-Boost Software License - Version 1.0 - August 17th, 2003\n\
-\n\
-Permission is hereby granted, free of charge, to any person or organization\n\
-obtaining a copy of the software and accompanying documentation covered by\n\
-this license (the \"Software\") to use, reproduce, display, distribute,\n\
-execute, and transmit the Software, and to prepare derivative works of the\n\
-Software, and to permit third-parties to whom the Software is furnished to\n\
-do so, all subject to the following:\n\
-\n\
-The copyright notices in the Software and this entire statement, including\n\
-the above license grant, this restriction and the following disclaimer,\n\
-must be included in all copies of the Software, in whole or in part, and\n\
-all derivative works of the Software, unless such copies or derivative\n\
-works are solely in the form of machine-executable object code generated by\n\
-a source language processor.\n\
-\n\
-THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n\
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n\
-FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO EVENT\n\
-SHALL THE COPYRIGHT HOLDERS OR ANYONE DISTRIBUTING THE SOFTWARE BE LIABLE\n\
-FOR ANY DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,\n\
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\n\
-DEALINGS IN THE SOFTWARE.\n\
-\n\
-\n\
-MIT License\n\
-\n\
-Permission is hereby granted, free of charge, to any person obtaining a copy\n\
-of this software and associated documentation files (the \"Software\"), to deal\n\
-in the Software without restriction, including without limitation the rights\n\
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n\
-copies of the Software, and to permit persons to whom the Software is\n\
-furnished to do so, subject to the following conditions:\n\
-\n\
-The above copyright notice and this permission notice shall be included in\n\
-all copies or substantial portions of the Software.\n\
-\n\
-THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n\
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n\
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n\
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n\
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n\
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\n\
-THE SOFTWARE.\n\
-\n";
+    // Stampa le licenze Boost e MIT se DIST_LICENSE è definito
+    cout << license::BOOST_LICENSE << endl;
+    cout << license::MIT_LICENSE << endl;
+#else
+    // Stampa solo la licenza MIT se DIST_LICENSE non è definito
+    cout << MIT_LICENSE << endl;
 #endif
 }
 

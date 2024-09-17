@@ -1,4 +1,5 @@
-AC_INIT(src/mash/mash.cpp)
+AC_INIT
+AC_CONFIG_SRCDIR([src/mash/mash.cpp])
 
 AC_ARG_WITH(capnp, [  --with-capnp=<path/to/capnp>     Cap'n Proto install dir (default: /usr/local/)])
 
@@ -76,4 +77,5 @@ fi
 
 AC_SUBST(capnp, $with_capnp)
 
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT

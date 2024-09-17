@@ -1,9 +1,3 @@
-// Copyright © 2015, Battelle National Biodefense Institute (BNBI);
-// all rights reserved. Authored by: Brian Ondov, Todd Treangen,
-// Sergey Koren, and Adam Phillippy
-//
-// See the LICENSE.txt file included with this software for license information.
-
 #include "sketchParameterSetup.h"
 #include <iostream>
 
@@ -22,6 +16,7 @@ int sketchParameterSetup(Sketch::Parameters & parameters, const Command & comman
     parameters.reads = command.getOption("reads").active;
     parameters.minCov = command.getOption("minCov").getArgumentAsNumber();
     parameters.targetCov = command.getOption("targetCov").getArgumentAsNumber();
+    parameters.fingerprint = command.getOption("fingerprint").active; // Nuova opzione
 #ifdef COMMAND_FIND
     parameters.windowed = command.getOption("windowed").active;
     parameters.windowSize = command.getOption("window").getArgumentAsNumber();
@@ -30,98 +25,104 @@ int sketchParameterSetup(Sketch::Parameters & parameters, const Command & comman
     parameters.parallelism = command.getOption("threads").getArgumentAsNumber();
     parameters.preserveCase = command.getOption("case").active;
     
-	if ( command.hasOption("warning") )
-	{
-	    parameters.warning = command.getOption("warning").getArgumentAsNumber();
-	}
-	
-	if ( command.getOption("memory").active )
-	{
-		parameters.reads = true;
-		//parameters.minCov = 2;
-		parameters.memoryBound = command.getOption("memory").getArgumentAsNumber();
-		
-		if ( command.getOption("minCov").active )
-		{
-			cerr << "ERROR: The option " << command.getOption("minCov").identifier << " cannot be used with " << command.getOption("memory").identifier << "." << endl;
-			return 1;
-		}
-	}
-	
-    if ( command.getOption("minCov").active || command.getOption("targetCov").active )
+    if (command.hasOption("warning"))
+    {
+        parameters.warning = command.getOption("warning").getArgumentAsNumber();
+    }
+
+    if (command.getOption("memory").active)
+    {
+        parameters.reads = true;
+        parameters.memoryBound = command.getOption("memory").getArgumentAsNumber();
+        
+        if (command.getOption("minCov").active)
+        {
+            cerr << "ERROR: The option " << command.getOption("minCov").identifier << " cannot be used with " << command.getOption("memory").identifier << "." << endl;
+            return 1;
+        }
+    }
+    
+    if (command.getOption("minCov").active || command.getOption("targetCov").active)
     {
         parameters.reads = true;
     }
     
-    if ( command.getOption("genome").active )
+    if (command.getOption("genome").active)
     {
-    	parameters.reads = true;
-    	parameters.genomeSize = command.getOption("genome").getArgumentAsNumber();
+        parameters.reads = true;
+        parameters.genomeSize = command.getOption("genome").getArgumentAsNumber();
     }
     
-    if ( parameters.reads )
+    if (parameters.reads)
     {
-    	parameters.counts = true;
+        parameters.counts = true;
     }
     
-    if ( parameters.reads && command.getOption("threads").active )
+    if (parameters.reads && command.getOption("threads").active)
     {
-    	cerr << "WARNING: The option " << command.getOption("threads").identifier << " will be ignored with " << command.getOption("reads").identifier << "." << endl;
+        cerr << "WARNING: The option " << command.getOption("threads").identifier << " will be ignored with " << command.getOption("reads").identifier << "." << endl;
     }
     
-    if ( parameters.reads && ! parameters.concatenated )
+    if (parameters.reads && !parameters.concatenated)
     {
         cerr << "ERROR: The option " << command.getOption("individual").identifier << " cannot be used with " << command.getOption("reads").identifier << "." << endl;
         return 1;
     }
     
-    if ( parameters.concatenated && parameters.windowed )
+    if (parameters.concatenated && parameters.windowed)
     {
         cerr << "ERROR: " << command.getOption("concat").identifier << " and " << command.getOption("windowed").identifier << " are incompatible." << endl;
         return 1;
     }
     
-    if ( command.getOption("protein").active )
+    if (parameters.fingerprint)
     {
-    	parameters.noncanonical = true;
-    	setAlphabetFromString(parameters, alphabetProtein);
-    	
-    	if ( ! command.getOption("kmer").active )
-    	{
-    		parameters.kmerSize = 9;
-    	}
+        parameters.kmerSize = 1; // Se non applicabile a fingerprint
+        parameters.noncanonical = true; // Se fingerprint non richiede considerazioni canoniche
+        // Imposta l'alfabeto per i numeri 0-9
+        setAlphabetFromString(parameters, "0123456789");
     }
-    else if ( command.getOption("alphabet").active )
+    else if (command.getOption("protein").active)
     {
-    	parameters.noncanonical = true;
-    	setAlphabetFromString(parameters, command.getOption("alphabet").argument.c_str());
+        parameters.noncanonical = true;
+        setAlphabetFromString(parameters, alphabetProtein);
+        
+        if (!command.getOption("kmer").active)
+        {
+            parameters.kmerSize = 9;
+        }
+    }
+    else if (command.getOption("alphabet").active)
+    {
+        parameters.noncanonical = true;
+        setAlphabetFromString(parameters, command.getOption("alphabet").argument.c_str());
     }
     else
     {
-    	setAlphabetFromString(parameters, alphabetNucleotide);
+        setAlphabetFromString(parameters, alphabetNucleotide);
     }
-    
+
     return 0;
 }
 
 void warnKmerSize(const Sketch::Parameters & parameters, const Command & command, uint64_t lengthMax, const std::string & lengthMaxName, double randomChance, int kMin, int warningCount)
 {
-	cerr << "\nWARNING: For the k-mer size used (" << parameters.kmerSize
-		<< "), the random match probability (" << randomChance
-		<< ") is above the specified warning threshold ("
-		<< parameters.warning << ") for the sequence \"" << lengthMaxName
-		<< "\" of size " << lengthMax;
-	
-	if ( warningCount > 1 )
-	{
-		cerr << " (and " << (warningCount - 1) << " others)";
-	}
-	
-	cerr << ". Distances to "
-		<< (warningCount == 1 ? "this sequence" : "these sequences")
-		<< " may be underestimated as a result. To meet the threshold of "
-		<< parameters.warning << ", a k-mer size of at least " << kMin
-		<< " is required. See: -" << command.getOption("kmer").identifier << ", -" << command.getOption("warning").identifier << "." << endl << endl;
+    cerr << "\nWARNING: For the k-mer size used (" << parameters.kmerSize
+         << "), the random match probability (" << randomChance
+         << ") is above the specified warning threshold ("
+         << parameters.warning << ") for the sequence \"" << lengthMaxName
+         << "\" of size " << lengthMax;
+
+    if (warningCount > 1)
+    {
+        cerr << " (and " << (warningCount - 1) << " others)";
+    }
+
+    cerr << ". Distances to "
+         << (warningCount == 1 ? "this sequence" : "these sequences")
+         << " may be underestimated as a result. To meet the threshold of "
+         << parameters.warning << ", a k-mer size of at least " << kMin
+         << " is required. See: -" << command.getOption("kmer").identifier << ", -" << command.getOption("warning").identifier << "." << endl << endl;
 }
 
 } // namespace mash

@@ -1,9 +1,3 @@
-// Copyright © 2015, Battelle National Biodefense Institute (BNBI);
-// all rights reserved. Authored by: Brian Ondov, Todd Treangen,
-// Sergey Koren, and Adam Phillippy
-//
-// See the LICENSE.txt file included with this software for license information.
-
 #include "CommandDistance.h"
 #include "Sketch.h"
 #include <iostream>
@@ -34,10 +28,10 @@ CommandDistance::CommandDistance()
     useOption("help");
     addOption("list", Option(Option::Boolean, "l", "Input", "List input. Lines in each <query> specify paths to sequence files, one per line. The reference file is not affected.", ""));
     addOption("table", Option(Option::Boolean, "t", "Output", "Table output (will not report p-values, but fields will be blank if they do not meet the p-value threshold).", ""));
-    //addOption("log", Option(Option::Boolean, "L", "Output", "Log scale distances and divide by k-mer size to provide a better analog to phylogenetic distance. The special case of zero shared min-hashes will result in a distance of 1.", ""));
     addOption("pvalue", Option(Option::Number, "v", "Output", "Maximum p-value to report.", "1.0", 0., 1.));
     addOption("distance", Option(Option::Number, "d", "Output", "Maximum distance to report.", "1.0", 0., 1.));
     addOption("comment", Option(Option::Boolean, "C", "Output", "Show comment fields with reference/query names (denoted with ':').", "1.0", 0., 1.));
+    addOption("fingerprint", Option(Option::Boolean, "fp", "Input", "Indicates that the input files are fingerprints instead of sequences.", "")); // Aggiunto
     useSketchOptions();
 }
 
@@ -53,9 +47,9 @@ int CommandDistance::run() const
     bool list = options.at("list").active;
     bool table = options.at("table").active;
     bool comment = options.at("comment").active;
-    //bool log = options.at("log").active;
     double pValueMax = options.at("pvalue").getArgumentAsNumber();
     double distanceMax = options.at("distance").getArgumentAsNumber();
+    bool fingerprint = options.at("fingerprint").active; // Nuova opzione
     
     Sketch::Parameters parameters;
     
@@ -109,10 +103,32 @@ int CommandDistance::run() const
     
     vector<string> refArgVector;
     refArgVector.push_back(fileReference);
-    
-    //cerr << "Sketch for " << fileReference << " not found or out of date; creating..." << endl;
-    
-    sketchRef.initFromFiles(refArgVector, parameters);
+
+    /**
+     * Se utilizzo l'opzione di fingerprint voglio che i due file che devo testare sono : 
+     * - .msh e .msh oppure .txt e .txt 
+     * 
+     * - In questo caso se utilizzo -fp con .txt .txt -> utilizzo la funzione .initFromFingerprints();
+     * 
+     * - Altrimenti se utilizzo -fp con .msh .msh -> utilizzo la funzione .initFromFiles(); 
+     */
+
+    bool tagMSH = containsMSH(refArgVector);
+    bool tagTXT = containsTXT(refArgVector);
+
+    if(fingerprint && tagMSH){
+
+        sketchRef.initFromFiles(refArgVector, parameters); // Nuova funzione per fingerprint
+
+    }
+    else if (fingerprint && tagTXT)
+    {
+        sketchRef.initFromFingerprints(refArgVector, parameters); // Nuova funzione per fingerprint
+    }
+    else
+    {
+        sketchRef.initFromFiles(refArgVector, parameters);
+    }
     
     double lengthThreshold = (parameters.warning * sketchRef.getKmerSpace()) / (1. - parameters.warning);
     
@@ -190,7 +206,20 @@ int CommandDistance::run() const
     
     Sketch sketchQuery;
     
-    sketchQuery.initFromFiles(queryFiles, parameters, 0, true);
+
+    // Applico lo stesso ragionamento fatto in precedenza 
+    if(fingerprint && tagMSH){
+
+        sketchQuery.initFromFiles(queryFiles, parameters); // Nuova funzione per fingerprint
+    }
+    else if (fingerprint && tagTXT)
+    {
+        sketchQuery.initFromFingerprints(queryFiles, parameters); // Nuova funzione per fingerprint
+    }
+    else
+    {
+        sketchQuery.initFromFiles(queryFiles, parameters, 0, true);
+    }
     
     uint64_t pairCount = sketchRef.getReferenceCount() * sketchQuery.getReferenceCount();
     uint64_t pairsPerThread = pairCount / parameters.parallelism;
@@ -317,14 +346,14 @@ CommandDistance::CompareOutput * compare(CommandDistance::CompareInput * input)
     uint64_t i = input->indexQuery;
     uint64_t j = input->indexRef;
     
-    for ( uint64_t k = 0; k < input->pairCount && i < sketchQuery.getReferenceCount(); k++ )
-    {
-        compareSketches(&output->pairs[k], sketchRef.getReference(j), sketchQuery.getReference(i), sketchSize, sketchRef.getKmerSize(), sketchRef.getKmerSpace(), input->maxDistance, input->maxPValue);
-        
+    for (uint64_t k = 0; k < input->pairCount && i < sketchQuery.getReferenceCount(); k++) {
+        try {
+            compareSketches(&output->pairs[k], sketchRef.getReference(j), sketchQuery.getReference(i), sketchSize, sketchRef.getKmerSize(), sketchRef.getKmerSpace(), input->maxDistance, input->maxPValue);
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Error: out_of_range exception caught: " << e.what() << std::endl;
+        }
         j++;
-        
-        if ( j == sketchRef.getReferenceCount() )
-        {
+        if (j == sketchRef.getReferenceCount()) {
             j = 0;
             i++;
         }
@@ -344,42 +373,28 @@ void compareSketches(CommandDistance::CompareOutput::PairOutput * output, const 
     
     output->pass = false;
     
-    while ( denom < sketchSize && i < hashesSortedRef.size() && j < hashesSortedQry.size() )
-    {
-        if ( hashLessThan(hashesSortedRef.at(i), hashesSortedQry.at(j), hashesSortedRef.get64()) )
-        {
+    while (denom < sketchSize && i < hashesSortedRef.size() && j < hashesSortedQry.size()) {
+        if (hashLessThan(hashesSortedRef.at(i), hashesSortedQry.at(j), hashesSortedRef.get64())) {
             i++;
-        }
-        else if ( hashLessThan(hashesSortedQry.at(j), hashesSortedRef.at(i), hashesSortedRef.get64()) )
-        {
+        } else if (hashLessThan(hashesSortedQry.at(j), hashesSortedRef.at(i), hashesSortedRef.get64())) {
             j++;
-        }
-        else
-        {
+        } else {
             i++;
             j++;
             common++;
         }
-        
         denom++;
     }
     
-    if ( denom < sketchSize )
-    {
+    if (denom < sketchSize) {
         // complete the union operation if possible
-        
-        if ( i < hashesSortedRef.size() )
-        {
+        if (i < hashesSortedRef.size()) {
             denom += hashesSortedRef.size() - i;
         }
-        
-        if ( j < hashesSortedQry.size() )
-        {
+        if (j < hashesSortedQry.size()) {
             denom += hashesSortedQry.size() - j;
         }
-        
-        if ( denom > sketchSize )
-        {
+        if (denom > sketchSize) {
             denom = sketchSize;
         }
     }
@@ -387,27 +402,18 @@ void compareSketches(CommandDistance::CompareOutput::PairOutput * output, const 
     double distance;
     double jaccard = double(common) / denom;
     
-    if ( common == denom ) // avoid -0
-    {
+    if (common == denom) { // avoid -0
         distance = 0;
-    }
-    else if ( common == 0 ) // avoid inf
-    {
+    } else if (common == 0) { // avoid inf
         distance = 1.;
-    }
-    else
-    {
-        //distance = log(double(common + 1) / (denom + 1)) / log(1. / (denom + 1));
+    } else {
         distance = -log(2 * jaccard / (1. + jaccard)) / kmerSize;
-        
-        if ( distance > 1 )
-        {
-        	distance = 1;
+        if (distance > 1) {
+            distance = 1;
         }
     }
     
-    if ( maxDistance >= 0 && distance > maxDistance )
-    {
+    if (maxDistance >= 0 && distance > maxDistance) {
         return;
     }
     
@@ -416,13 +422,13 @@ void compareSketches(CommandDistance::CompareOutput::PairOutput * output, const 
     output->distance = distance;
     output->pValue = pValue(common, refRef.length, refQry.length, kmerSpace, denom);
     
-    if ( maxPValue >= 0 && output->pValue > maxPValue )
-    {
+    if (maxPValue >= 0 && output->pValue > maxPValue) {
         return;
     }
     
     output->pass = true;
 }
+
 
 double pValue(uint64_t x, uint64_t lengthRef, uint64_t lengthQuery, double kmerSpace, uint64_t sketchSize)
 {
@@ -436,15 +442,41 @@ double pValue(uint64_t x, uint64_t lengthRef, uint64_t lengthQuery, double kmerS
     
     double r = pX * pY / (pX + pY - pX * pY);
     
-    //double M = (double)kmerSpace * (pX + pY) / (1. + r);
-    
-    //return gsl_cdf_hypergeometric_Q(x - 1, r * M, M - r * M, sketchSize);
-    
 #ifdef USE_BOOST
     return cdf(complement(binomial(sketchSize, r), x - 1));
 #else
     return gsl_cdf_binomial_Q(x - 1, r, sketchSize);
 #endif
 }
+
+
+bool containsMSH(const std::vector<std::string>& strVec) {
+    
+    bool flag = false;
+
+    for (const auto& str : strVec) {
+         flag = str.find(".msh") != std::string::npos;
+    }
+
+    return flag;
+
+}
+
+
+
+bool containsTXT(const std::vector<std::string>& strVec){
+    bool flag = false;
+
+    for (const auto& str : strVec) {
+         flag = str.find(".txt") != std::string::npos;
+    }
+
+    return flag;
+}
+
+
+
+
+
 
 } // namespace mash

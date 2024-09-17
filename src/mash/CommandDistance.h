@@ -1,9 +1,3 @@
-// Copyright © 2015, Battelle National Biodefense Institute (BNBI);
-// all rights reserved. Authored by: Brian Ondov, Todd Treangen,
-// Sergey Koren, and Adam Phillippy
-//
-// See the LICENSE.txt file included with this software for license information.
-
 #ifndef INCLUDED_CommandDistance
 #define INCLUDED_CommandDistance
 
@@ -88,9 +82,15 @@ private:
     void writeOutput(CompareOutput * output, bool table, bool comment) const;
 };
 
+
 CommandDistance::CompareOutput * compare(CommandDistance::CompareInput * input);
 void compareSketches(CommandDistance::CompareOutput::PairOutput * output, const Sketch::Reference & refRef, const Sketch::Reference & refQry, uint64_t sketchSize, int kmerSize, double kmerSpace, double maxDistance, double maxPValue);
 double pValue(uint64_t x, uint64_t lengthRef, uint64_t lengthQuery, double kmerSpace, uint64_t sketchSize);
+
+
+bool containsMSH(const std::vector<std::string>& strVec) ;
+bool containsTXT(const std::vector<std::string>& strVec) ;
+
 
 } // namespace mash
 
