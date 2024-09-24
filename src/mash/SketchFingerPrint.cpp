@@ -292,7 +292,7 @@ int SketchFingerPrint::initFromFingerPrintFiles(const vector<string> & files, co
 	
     for ( int i = 0; i < files.size(); i++ )
     {
-        bool isSketch = hasSuffix(files[i], parameters.windowed ? suffixFingerPrintSketchWindowed : suffixFingerPrintSketch);
+        bool isSketch = hasSuffixFingerPrint(files[i], parameters.windowed ? suffixFingerPrintSketchWindowed : suffixFingerPrintSketch);
         
         if ( isSketch )
         {
@@ -471,7 +471,7 @@ uint64_t SketchFingerPrint::initParametersFingerPrintsFromCapnp(const char * fil
     
     //capnp::StreamFdMessageReader * message = new capnp::StreamFdMessageReader(fd, readerOptions);
     capnp::FlatArrayMessageReader * message = new capnp::FlatArrayMessageReader(kj::ArrayPtr<const capnp::word>(reinterpret_cast<const capnp::word *>(data), fileInfo.st_size / sizeof(capnp::word)), readerOptions);
-    capnpfp::MinHash::Reader reader = message->getRoot<capnpfp::MinHash>();
+    capnp::MinHashFingerPrint::Reader reader = message->getRoot<capnp::MinHashFingerPrint>();
     
     parameters.kmerSize = reader.getKmerSize();
     parameters.error = reader.getError();
@@ -481,7 +481,7 @@ uint64_t SketchFingerPrint::initParametersFingerPrintsFromCapnp(const char * fil
     parameters.noncanonical = reader.getNoncanonical();
    	parameters.preserveCase = reader.getPreserveCase();
 
-    capnpfp::MinHash::ReferenceList::Reader referenceListReader;
+    capnp::MinHashFingerPrint::ReferenceList::Reader referenceListReader;
     if(reader.getReferenceList().getReferences().size() >0 ){
         
         
@@ -495,7 +495,7 @@ uint64_t SketchFingerPrint::initParametersFingerPrintsFromCapnp(const char * fil
         cout<<"Sono qui La size delle references era <0 !"<<endl;
     }
     
-    capnp::List<capnpfp::MinHash::ReferenceList::Reference>::Reader referencesReader = referenceListReader.getReferences();
+    capnp::List<capnp::MinHashFingerPrint::ReferenceList::Reference>::Reader referencesReader = referenceListReader.getReferences();
     uint64_t referenceCount = referencesReader.size();
     
     cout<<" Sono nell'InitFromFingerPrints() "<<endl;
@@ -733,19 +733,19 @@ int SketchFingerPrint::writeToCapnpFingerPrint(const char * file) const
 
     cout << "Initializing Cap'n Proto message builder" << endl;
     capnp::MallocMessageBuilder message;
-    capnp::MinHash::Builder builder = message.initRoot<capnp::MinHash>();
+    capnp::MinHashFingerPrint::Builder builder = message.initRoot<capnp::MinHashFingerPrint>();
 
     cout << "Initializing ReferenceList builder" << endl;
-    capnp::MinHash::ReferenceList::Builder referenceListBuilder = (parameters.seed == 42 ? builder.initReferenceListOld() : builder.initReferenceList());
+    capnp::MinHashFingerPrint::ReferenceList::Builder referenceListBuilder = (parameters.seed == 42 ? builder.initReferenceListOld() : builder.initReferenceList());
 
     cout << "Initializing references builder with size: " << references.size() << endl;
-    capnp::List<capnp::MinHash::ReferenceList::Reference>::Builder referencesBuilder = referenceListBuilder.initReferences(references.size());
+    capnp::List<capnp::MinHashFingerPrint::ReferenceList::Reference>::Builder referencesBuilder = referenceListBuilder.initReferences(references.size());
 
     for (uint64_t i = 0; i < references.size(); i++)
     {   
         
         cout << "Processing reference " << i << ": " << references[i].name << endl;
-        capnp::MinHash::ReferenceList::Reference::Builder referenceBuilder = referencesBuilder[i];
+        capnp::MinHashFingerPrint::ReferenceList::Reference::Builder referenceBuilder = referencesBuilder[i];
         referenceBuilder.setId(references[i].id);   
         referenceBuilder.setName(references[i].name);
         referenceBuilder.setComment(references[i].comment);
@@ -755,8 +755,8 @@ int SketchFingerPrint::writeToCapnpFingerPrint(const char * file) const
 
         if (references[i].subSketch_list.size() != 0)
         {
-            // Initialize the SubSketch list in the Cap'n Proto message
-            capnp::List<capnp::MinHash::SubSketch>::Builder subSketchListBuilder = referenceBuilder.initSubSketchList(references[i].subSketch_list.size());
+            /*// Initialize the SubSketch list in the Cap'n Proto message
+            capnp::List<capnp::MinHashFingerPrint::SubSketch>::Builder subSketchListBuilder = referenceBuilder.initSubSketchList(references[i].subSketch_list.size());
 
             for (uint64_t j = 0; j < references[i].subSketch_list.size(); j++)
             {
@@ -787,7 +787,7 @@ int SketchFingerPrint::writeToCapnpFingerPrint(const char * file) const
                 {
                     //cout << "No hashes found for SubSketch " << subsketch.ID << endl;
                 }
-            }
+            }*/
         }
 
         if (references[i].counts.size() > 0 && parameters.counts)
@@ -836,7 +836,7 @@ int SketchFingerPrint::writeToCapnpFingerPrint(const char * file) const
 void SketchFingerPrint::createIndexFingerPrint()
 {
 
-    if (references.size() == 0)
+    /*if (references.size() == 0)
     {
         cerr << "ERROR: references is empty." << endl;
         return;
@@ -877,7 +877,7 @@ void SketchFingerPrint::createIndexFingerPrint()
 
     // Calcola lo spazio dei k-mer
     kmerSpace = pow(parameters.alphabetSize, parameters.kmerSize);
-    cout << "kmerSpace: " << kmerSpace << endl;
+    cout << "kmerSpace: " << kmerSpace << endl;*/
 
     cout << "Fine della funzione createIndexFingerPrint" << endl;
 }
@@ -915,7 +915,7 @@ void addMinHashes(MinHashHeap & minHashHeap, char * seq, uint64_t length, const 
     if ( ! noncanonical )
     {
     	seqRev = new char[length];
-        reverseComplement(seq, seqRev, length);
+        reverseFingerPrintComplement(seq, seqRev, length);
     }
     
     uint64_t j = 0;
@@ -963,7 +963,7 @@ void addMinHashes(MinHashHeap & minHashHeap, char * seq, uint64_t length, const 
     }
 }
 
-//void getMinHashPositions(vector<Sketch::PositionHash> & positionHashes, char * seq, uint32_t length, const Sketch::Parameters & parameters, int verbosity)
+/*void getMinHashPositions(vector<Sketch::PositionHash> & positionHashes, char * seq, uint32_t length, const Sketch::Parameters & parameters, int verbosity)
 {
     // Find positions whose hashes are min-hashes in any window of a sequence
     
@@ -1273,9 +1273,11 @@ void addMinHashes(MinHashHeap & minHashHeap, char * seq, uint64_t length, const 
     }
     
     if ( verbosity > 0 ) cout << "   " << positionHashes.size() << " minmers across " << length - windowSize - kmerSize + 2 << " windows (" << unique << " windows with distinct minmer sets)." << endl << endl;
-}
+}*/
 
-bool hasSuffix(string const & whole, string const & suffix)
+
+
+bool hasSuffixFingerPrint(string const & whole, string const & suffix)
 {
     if (whole.length() >= suffix.length())
     {
@@ -1457,8 +1459,8 @@ SketchFingerPrint::SketchOutput * loadCapnpFingerPrint(SketchFingerPrint::Sketch
         return 0;
     }
     
-	Sketch::SketchOutput * output = new Sketch::SketchOutput();
-	vector<Sketch::Reference> & references = output->references;
+	SketchFingerPrint::SketchOutput * output = new SketchFingerPrint::SketchOutput();
+	vector<SketchFingerPrint::Reference> & references = output->references;
 	
     void * data = mmap(NULL, fileInfo.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     
@@ -1468,19 +1470,19 @@ SketchFingerPrint::SketchOutput * loadCapnpFingerPrint(SketchFingerPrint::Sketch
     readerOptions.nestingLimit = 1000000;
     
     capnp::FlatArrayMessageReader * message = new capnp::FlatArrayMessageReader(kj::ArrayPtr<const capnp::word>(reinterpret_cast<const capnp::word *>(data), fileInfo.st_size / sizeof(capnp::word)), readerOptions);
-    capnp::MinHash::Reader reader = message->getRoot<capnp::MinHash>();
+    capnp::MinHashFingerPrint::Reader reader = message->getRoot<capnp::MinHashFingerPrint>();
     
-    capnp::MinHash::ReferenceList::Reader referenceListReader = reader.getReferenceList().getReferences().size() ? reader.getReferenceList() : reader.getReferenceListOld();
+    capnp::MinHashFingerPrint::ReferenceList::Reader referenceListReader = reader.getReferenceList().getReferences().size() ? reader.getReferenceList() : reader.getReferenceListOld();
     
-    capnp::List<capnp::MinHash::ReferenceList::Reference>::Reader referencesReader = referenceListReader.getReferences();
+    capnp::List<capnp::MinHashFingerPrint::ReferenceList::Reference>::Reader referencesReader = referenceListReader.getReferences();
     
     references.resize(referencesReader.size());
     
     for ( uint64_t i = 0; i < referencesReader.size(); i++ )
     {
-        capnp::MinHash::ReferenceList::Reference::Reader referenceReader = referencesReader[i];
+        capnp::MinHashFingerPrint::ReferenceList::Reference::Reader referenceReader = referencesReader[i];
         
-        Sketch::Reference & reference = references[i];
+        SketchFingerPrint::Reference & reference = references[i];
 
         reference.id = referenceReader.getId();
         reference.name = referenceReader.getName();
@@ -1495,8 +1497,8 @@ SketchFingerPrint::SketchOutput * loadCapnpFingerPrint(SketchFingerPrint::Sketch
 	        reference.length = referenceReader.getLength();
 	    }
         
-        reference.hashesSorted.setUse64(input->parameters.use64);
-        uint64_t hashCount;
+        //reference.hashesSorted.setUse64(input->parameters.use64);
+        /*uint64_t hashCount;
         
         // Verifico che i miei subsketch hanno una size >0 
         if(referenceReader.getSubSketchList().size()!=0){
@@ -1569,6 +1571,7 @@ SketchFingerPrint::SketchOutput * loadCapnpFingerPrint(SketchFingerPrint::Sketch
                 reference.subSketch_list.push_back(subSketch);
             }
         }
+    }*/
     }
     
     munmap(data, fileInfo.st_size);
@@ -1611,7 +1614,7 @@ const char complement[] = {
   'N', // 'Z' = .
 };
 
-void reverseComplement(const char * src, char * dest, int length)
+void reverseFingerPrintComplement(const char * src, char * dest, int length)
 {
     for ( int i = 0; i < length; i++ )
     {
@@ -1652,25 +1655,25 @@ void setAlphabetFromString(SketchFingerPrint::Parameters & parameters, const cha
 
 void setMinHashesForReference(SketchFingerPrint::Reference & reference, const MinHashHeap & hashes)
 {
-    HashList & hashList = reference.hashesSorted;
+    /*HashList & hashList = reference.hashesSorted;
     hashList.clear();
     hashes.toHashList(hashList, reference.counts);
-    reference.countsSorted = true;
+    reference.countsSorted = true;*/
 }
 
 SketchFingerPrint::SketchOutput * sketchFile(SketchFingerPrint::SketchInput * input)
 {
-	const Sketch::Parameters & parameters = input->parameters;
+	const SketchFingerPrint::Parameters & parameters = input->parameters;
 	
-	Sketch::SketchOutput * output = new Sketch::SketchOutput();
+	SketchFingerPrint::SketchOutput * output = new SketchFingerPrint::SketchOutput();
 	
 	output->references.resize(1);
-	Sketch::Reference & reference = output->references[0];
+	SketchFingerPrint::Reference & reference = output->references[0];
 	
     MinHashHeap minHashHeap(parameters.use64, parameters.minHashesPerWindow, parameters.reads ? parameters.minCov : 1, parameters.memoryBound);
 
 	reference.length = 0;
-	reference.hashesSorted.setUse64(parameters.use64);
+	//reference.hashesSorted.setUse64(parameters.use64);
 	
     int l;
     int count = 0;
@@ -1851,27 +1854,27 @@ SketchFingerPrint::SketchOutput * sketchFile(SketchFingerPrint::SketchInput * in
 
 SketchFingerPrint::SketchOutput * sketchSequence(SketchFingerPrint::SketchInput * input)
 {
-	const Sketch::Parameters & parameters = input->parameters;
+	const SketchFingerPrint::Parameters & parametersFingerPrint = input->parameters;
 	
-	Sketch::SketchOutput * output = new Sketch::SketchOutput();
+	SketchFingerPrint::SketchOutput * output = new SketchFingerPrint::SketchOutput();
 	
 	output->references.resize(1);
-	Sketch::Reference & reference = output->references[0];
+	SketchFingerPrint::Reference & reference = output->references[0];
 	
 	reference.length = input->length;
 	reference.name = input->name;
 	reference.comment = input->comment;
-	reference.hashesSorted.setUse64(parameters.use64);
+	reference.use64 = parametersFingerPrint.use64 ;
 	
-	if ( parameters.windowed )
+	if ( parametersFingerPrint.windowed )
 	{
-		output->positionHashesByReference.resize(1);
-		getMinHashPositions(output->positionHashesByReference[0], input->seq, input->length, parameters, 0);
+		//output->positionHashesByReference.resize(1);
+		//getMinHashPositions(output->positionHashesByReference[0], input->seq, input->length, parameters, 0);
 	}
 	else
 	{
-	    MinHashHeap minHashHeap(parameters.use64, parameters.minHashesPerWindow, parameters.reads ? parameters.minCov : 1);
-        addMinHashes(minHashHeap, input->seq, input->length, parameters);
+	    MinHashHeap minHashHeap(parametersFingerPrint.use64, parametersFingerPrint.minHashesPerWindow, parametersFingerPrint.reads ? parametersFingerPrint.minCov : 1);
+        addMinHashes(minHashHeap, input->seq, input->length, parametersFingerPrint);
 		setMinHashesForReference(reference, minHashHeap);
 	}
 	
@@ -1894,7 +1897,7 @@ SketchFingerPrint::SketchOutput * sketchSequence(SketchFingerPrint::SketchInput 
    level is supplied, Z_VERSION_ERROR if the version of zlib.h and the
    version of the library linked do not match, or Z_ERRNO if there is
    an error reading or writing the files. */
-int def(int fdSource, int fdDest, int level)
+int defFingerPrint(int fdSource, int fdDest, int level)
 {
     int ret, flush;
     unsigned have;
@@ -1950,7 +1953,7 @@ int def(int fdSource, int fdDest, int level)
    invalid or incomplete, Z_VERSION_ERROR if the version of zlib.h and
    the version of the library linked do not match, or Z_ERRNO if there
    is an error reading or writing the files. */
-int inf(int fdSource, int fdDest)
+int infFingerPrint(int fdSource, int fdDest)
 {
     int ret;
     unsigned have;
@@ -2009,7 +2012,7 @@ int inf(int fdSource, int fdDest)
 }
 
 /* report a zlib or i/o error */
-void zerr(int ret)
+void zerrFingerPrint(int ret)
 {
     fputs("zpipe: ", stderr);
     switch (ret) {

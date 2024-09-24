@@ -1,9 +1,9 @@
 using Cxx = import "/capnp/c++.capnp";
-$Cxx.namespace("capnfp");
+$Cxx.namespace("capnp");
 
 @0x81afe55c284d062f;
 
-struct MinHash
+struct MinHashFingerPrint
 {
     struct ReferenceList
     {

@@ -11,13 +11,27 @@
 
 namespace mash {
 
-class CommandSketch : public Command
-{
+class CommandSketch : public Command {
+
 public:
 
     CommandSketch();
     
     int run() const; // override
+
+    int runFingerPrint() const;
+
+
+private:
+    // checkArguments - Verifica degli argomenti 
+    bool checkArguments() const; 
+
+    // populatesFiles - Effettua la popolazione del vettore 
+    void populateFiles(std::vector<std::string> &files, bool list) const; 
+
+    // determinePrefixAndSuffix - Determina il prefisso e il suffisso del file 
+    std::string determinePrefixAndSuffix(const std::string &arg, bool isFingerprint, SketchFingerPrint::Parameters paramametersFingerPrint, Sketch::Parameters parameters ) const; 
+
 };
 
 } // namespace mash

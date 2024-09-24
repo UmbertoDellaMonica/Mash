@@ -12,6 +12,7 @@
 
 using std::cerr;
 using std::endl;
+using std::cout;
 using std::string;
 using std::vector;
 
@@ -35,57 +36,54 @@ CommandSketch::CommandSketch()
     useSketchOptions();
 }
 
-int CommandSketch::run() const
-{
-    if (arguments.size() == 0 || options.at("help").active)
-    {
-        print();
-        return 0;
+int CommandSketch::run() const {
+    
+    // Verifica se ci sono gli argomenti giusti 
+    if (!checkArguments()) {
+        return 1; // Ritorna un errore se i parametri non sono validi
+    }
+
+    // Recupera il valore della Fingerprint -fp nel caso questa è attiva   
+    bool fingerprint = options.at("fingerprint").active; 
+
+    /**
+     * Se fingerPrint è attivo viene eseguita una funzione totalmente diversa 
+     */
+    if(fingerprint){
+        return runFingerPrint();
     }
 
     int verbosity = 1; // options.at("silent").active ? 0 : options.at("verbose").active ? 2 : 1;
-    bool list = options.at("list").active;
-    bool fingerprint = options.at("fingerprint").active; // Nuova opzione
+    
 
+    bool list = options.at("list").active;
+
+    // Dichiaro l'oggetto Parameters dello sketch 
     Sketch::Parameters parameters;
+
+    // Recupero il parametro di counts 
     parameters.counts = options.at("counts").active;
 
-
-    SketchFingerPrint::Parameters parametersFingerprint;
-    parametersFingerprint.counts = options.at("counts").active;
-
+    // Inizializzo i Parametri dello sketch 
     if (sketchParameterSetup(parameters, *(Command *)this))
     {
         return 1;
     }
 
-    vector<string> files;
-    for (int i = 0; i < arguments.size(); i++)
-    {
-        if (list)
-        {
-            splitFile(arguments[i], files);
-        }
-        else
-        {
-            files.push_back(arguments[i]);
-        }
-    }
+    std::vector<std::string> files;
+    // Recupero tutti i files che sono stati listati
+    populateFiles(files, list);
 
+    // Dichiaro lo sketch file 
     Sketch sketch;
-    SketchFingerPrint sketchFingerPrint;
 
 
-    if (parameters.reads)
-    {
+    if (parameters.reads){
+
         sketch.initFromReads(files, parameters);
-    }
-    else if (fingerprint)
-    {
-        sketchFingerPrint.initFromFingerprints(files, parametersFingerprint); // Nuova funzione per fingerprint
-    }
-    else
-    {
+    
+    }else{
+
         sketch.initFromFiles(files, parameters, verbosity);
     }
 
@@ -99,40 +97,169 @@ int CommandSketch::run() const
         sketch.setReferenceComment(0, getOption("comment").argument);
     }
 
-    string prefix;
-    if (options.at("prefix").argument.length() > 0)
-    {
-        prefix = options.at("prefix").argument;
-    }
-    else
-    {
-        if (arguments[0] == "-")
-        {
-            prefix = "stdin";
-        }
-        else
-        {
-            prefix = arguments[0];
-        }
-    }
+    // Determina il prefisso e il suffisso del file 
+    std::string prefix = determinePrefixAndSuffix(arguments[0], fingerprint, nullptr, parameters);
 
-    string suffix = parameters.windowed ? suffixSketchWindowed : suffixSketch;
-    if (!hasSuffix(prefix, suffix))
-    {
-        prefix += suffix;
-    }
-
-    cerr << "Writing to " << prefix << "..." << endl;
-
-
-
-        if(!fingerprint){
-        sketch.writeToCapnp(prefix.c_str());
-        }else{
-        sketchFingerPrint.writeToCapnpFingerPrint(prefix.c_str());
-        }
+    // Effettua la scrittura del file per l'Indicizzazione di Capnp
+    sketch.writeToCapnp(prefix.c_str());
 
     return 0;
 }
+
+
+
+
+int CommandSketch::runFingerPrint() const {
+
+    cout << "I'm Here ! " << "... in sketch fingerprint" << endl;
+
+    int verbosity = 1; // options.at("silent").active ? 0 : options.at("verbose").active ? 2 : 1;
+    
+
+    bool list = options.at("list").active;
+
+    // Instanzio l'oggetto dei parametri della fingerprint 
+    SketchFingerPrint::Parameters parametersFingerprint;
+    // Attivo l'opzione del parametro "counts"
+    parametersFingerprint.counts = options.at("counts").active;
+    
+    // Inizializza i parametri della fingerprint
+    if (sketchParameterFingerPrintSetup(parametersFingerprint, *(Command *)this))
+    {
+        return 1;
+    }
+
+
+    std::vector<std::string> files;
+    // Inserisco nel vettore tutti i file che devo 
+    populateFiles(files, list);
+
+    // Dichiaro l'oggetto - SketchFingerPrint
+    SketchFingerPrint sketchFingerPrint;
+
+    // Inizializzo il file di SketchFingerPrint
+    sketchFingerPrint.initFromFingerprints(files, parametersFingerprint); // Nuova funzione per fingerprint
+
+    // Recupera l'opzione "id" e se attiva la mette all'interno dello sketch 
+    if (getOption("id").active)
+    {
+        sketchFingerPrint.setReferenceName(0, getOption("id").argument);
+    }
+    // Recupera l'opzione "comment" e se attiva la mette all'interno dello sketch 
+    if (getOption("comment").active)
+    {
+        sketchFingerPrint.setReferenceComment(0, getOption("comment").argument);
+    }
+
+    // Determina il prefisso e il suffisso del file 
+    std::string prefix = determinePrefixAndSuffix(arguments[0], true, parametersFingerprint, nullptr);
+
+    // Effettua la scrittura del file per l'Indicizzazione di Capnp
+    sketchFingerPrint.writeToCapnpFingerPrint(prefix.c_str());
+
+    return 0; 
+}
+
+
+
+
+
+
+
+bool CommandSketch::checkArguments() const {
+    /**
+     * @brief Verifica la validità degli argomenti passati al comando.
+     * 
+     * Questo metodo controlla se la lista degli argomenti è vuota o se l'opzione "help" è attiva.
+     * Se uno di questi casi è vero, il metodo chiama la funzione `print` per visualizzare 
+     * un messaggio di aiuto e ritorna `false`, indicando che gli argomenti non sono validi.
+     * 
+     * @return `true` se gli argomenti sono validi e il comando può continuare; `false` altrimenti.
+     * 
+     * La verifica consiste nei seguenti passaggi:
+     * 1. Controlla se la lista degli argomenti (`arguments`) è vuota.
+     * 2. Controlla se l'opzione "help" (`options.at("help")`) è attiva.
+     *    - `options.at("help").active` verifica se l'opzione "help" è stata specificata.
+     * 
+     * Se uno dei due controlli è positivo, il metodo:
+     * 1. Chiama la funzione `print()` per visualizzare il messaggio di aiuto.
+     * 2. Ritorna `false` per indicare che la verifica degli argomenti è fallita.
+     * 
+     * Se entrambi i controlli sono negativi, il metodo ritorna `true` per indicare che gli argomenti
+     * sono validi e il comando può proseguire con l'esecuzione.
+     * 
+     * Questo metodo è privato e viene utilizzato internamente nella classe `CommandSketch` per 
+     * assicurare che gli argomenti siano appropriati prima di eseguire il comando.
+     */
+    if (arguments.size() == 0 || options.at("help").active) {
+        print();
+        return false;
+    }
+    return true;
+}
+
+
+
+void CommandSketch::populateFiles(std::vector<std::string> &files, bool list) const {
+    /**
+     * @brief Popola il vettore di file in base agli argomenti e l'opzione 'list'.
+     * 
+     * Questo metodo scorre tutti gli argomenti passati al comando. Se l'opzione 'list' è attiva,
+     * ogni argomento viene passato alla funzione `splitFile` per essere ulteriormente suddiviso
+     * e i risultati vengono aggiunti al vettore `files`. Altrimenti, ogni argomento viene aggiunto
+     * direttamente al vettore `files`.
+     * 
+     * @param files Riferimento al vettore di stringhe da popolare con i file.
+     * @param list Booleano che indica se l'opzione 'list' è attiva.
+     */
+    for (int i = 0; i < arguments.size(); i++) {
+        if (list) {
+            splitFile(arguments[i], files);
+        } else {
+            files.push_back(arguments[i]);
+        }
+    }
+}
+
+
+std::string CommandSketch::determinePrefixAndSuffix(const std::string &arg, bool isFingerprint, SketchFingerPrint::Parameters parametersFingerPrint, Sketch::Parameters parameters) const {
+    /**
+     * @brief Determina il prefisso e il suffisso per i file.
+     * 
+     * Questo metodo determina il prefisso in base all'opzione "prefix" e all'argomento passato.
+     * Successivamente, aggiunge il suffisso appropriato in base ai parametri specificati.
+     * 
+     * @param arg L'argomento da cui determinare il prefisso.
+     * @param isFingerprint Booleano che indica se usare i parametri di fingerprint.
+     * @return Una stringa che rappresenta il prefisso con il suffisso appropriato.
+     */
+    std::string prefix;
+    if (options.at("prefix").argument.length() > 0) {
+        prefix = options.at("prefix").argument;
+    } else {
+        if (arg == "-") {
+            prefix = "stdin";
+        } else {
+            prefix = arg;
+        }
+    }
+
+    std::string suffix;
+    if (isFingerprint) {
+        suffix = parametersFingerprint.windowed ? suffixFingerPrintSketchWindowed : suffixFingerPrintSketch;
+        if (!hasSuffixFingerPrint(prefix, suffix)) {
+            prefix += suffix;
+        }
+    } else {
+        suffix = parameters.windowed ? suffixSketchWindowed : suffixSketch;
+        if (!hasSuffix(prefix, suffix)) {
+            prefix += suffix;
+        }
+    }
+
+    return prefix;
+}
+
+
 
 } // namespace mash

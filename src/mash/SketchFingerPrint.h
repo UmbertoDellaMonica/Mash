@@ -277,14 +277,14 @@ void addMinHashes(MinHashHeap & minHashHeap, char * seq, uint64_t length, const 
 
 //void getMinHashPositions(std::vector<SketchFingerPrint::PositionHash> & loci, char * seq, uint32_t length, const Sketch::Parameters & parameters, int verbosity = 0);
 
-bool hasSuffix(std::string const & whole, std::string const & suffix);
+bool hasSuffixFingerPrint(std::string const & whole, std::string const & suffix);
 
 
 
 
 SketchFingerPrint::SketchOutput * loadCapnpFingerPrint(SketchFingerPrint::SketchInput * input);
 
-void reverseComplement(const char * src, char * dest, int length);
+void reverseFingerPrintComplement(const char * src, char * dest, int length);
 
 void setAlphabetFromString(SketchFingerPrint::Parameters & parameters, const char * characters);
 
@@ -295,10 +295,10 @@ SketchFingerPrint::SketchOutput * sketchFile(SketchFingerPrint::SketchInput * in
 SketchFingerPrint::SketchOutput * sketchSequence(SketchFingerPrint::SketchInput * input);
 
 
-int def(int fdSource, int fdDest, int level);
+int defFingerPrint(int fdSource, int fdDest, int level);
 
-int inf(int fdSource, int fdDest);
+int infFingerPrint(int fdSource, int fdDest);
 
-void zerr(int ret);
+void zerrFingerPrint(int ret);
 
 #endif
