@@ -4,6 +4,7 @@
 //
 // See the LICENSE.txt file included with this software for license information.
 
+#include "SketchFingerPrint.h"
 #include "CommandPaste.h"
 #include "Sketch.h"
 #include <iostream>
@@ -46,7 +47,7 @@ bool fileExists(const std::string& filename) {
 int CommandPaste::run() const
 {
 
-    bool output = options.at("output").active; // Verifica se l'opzione è attiva 
+    /**bool output = options.at("output").active; // Verifica se l'opzione è attiva 
 
     bool list = options.at("list").active; // Verifica se l'opzione list è attiva
     
@@ -76,7 +77,7 @@ int CommandPaste::run() const
      * ** Se l'opzione non viene specificata allora l'output file deve andare all'inizio come argomento 
      */
 
-    if(output){
+    /**if(output){
     // Itera attraverso gli argomenti
         for ( int i = 0; i < arguments.size()-1; i++ ){
             
@@ -135,6 +136,10 @@ int CommandPaste::run() const
     Sketch::Parameters parameters; // Parametri per l'oggetto Sketch
     parameters.parallelism = 1; // Imposta il parallelismo a 1
     
+
+    SketchFingerPrint sketchFingerPrint;
+    Sketch::Parameters parametersFingerPrint; // Parametri per l'oggetto Sketch
+
     // Deve iterare su file che hanno suffisso sia .txt e sia .msh 
     if(fingerPrint){
 
@@ -151,7 +156,7 @@ int CommandPaste::run() const
          *                                              altrimenti -> stampiamo un messaggio di errore e ritorniamo 1 
          */
 
-        for (int i = 0; i < files.size(); i++){
+        /**for (int i = 0; i < files.size(); i++){
         string & file = files[i];
 
         // Verifica se il file ha il suffisso corretto
@@ -188,6 +193,8 @@ int CommandPaste::run() const
         // Aggiungi il file al vettore dei file validi
         filesGood.push_back(file);
     }
+
+        sketchFingerPrint.initFromFingerPrintFiles(filesGood,parametersFingerPrint);
 
 
     }else{
@@ -239,7 +246,7 @@ int CommandPaste::run() const
     }
     
     cerr << "Writing " << out << "..." << endl; // Messaggio di log
-    sketch.writeToCapnp(out.c_str()); // Scrivi l'oggetto Sketch nel file di output
+    sketch.writeToCapnpFingerPrint(out.c_str()); // Scrivi l'oggetto Sketch nel file di output**/
     
     return 0; // Termina con successo
 }

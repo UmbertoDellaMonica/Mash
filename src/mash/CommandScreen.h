@@ -9,6 +9,7 @@
 
 #include "Command.h"
 #include "Sketch.h"
+#include "SketchFingerPrint.h"
 #include <list>
 #include <string>
 #include <vector>

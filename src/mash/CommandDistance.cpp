@@ -1,5 +1,6 @@
 #include "CommandDistance.h"
 #include "Sketch.h"
+#include "SketchFingerPrint.h"
 #include <iostream>
 #include <zlib.h>
 #include "ThreadPool.h"
@@ -37,7 +38,7 @@ CommandDistance::CommandDistance()
 
 int CommandDistance::run() const
 {
-    if ( arguments.size() < 2 || options.at("help").active )
+    /*if ( arguments.size() < 2 || options.at("help").active )
     {
         print();
         return 0;
@@ -59,6 +60,7 @@ int CommandDistance::run() const
     }
     
     Sketch sketchRef;
+    SketchFingerPrint SketchFingerPrintRef;
     
     uint64_t lengthMax;
     double randomChance;
@@ -112,7 +114,7 @@ int CommandDistance::run() const
      * 
      * - Altrimenti se utilizzo -fp con .msh .msh -> utilizzo la funzione .initFromFiles(); 
      */
-
+    /*
     bool tagMSH = containsMSH(refArgVector);
     bool tagTXT = containsTXT(refArgVector);
 
@@ -123,7 +125,7 @@ int CommandDistance::run() const
     }
     else if (fingerprint && tagTXT)
     {
-        sketchRef.initFromFingerprints(refArgVector, parameters); // Nuova funzione per fingerprint
+        SketchFingerPrintRef.initFromFingerprints(refArgVector, parameters); // Nuova funzione per fingerprint
     }
     else
     {
@@ -205,16 +207,17 @@ int CommandDistance::run() const
     }
     
     Sketch sketchQuery;
+    SketchFingerPrint sketchFingerPrintQuery;
     
 
     // Applico lo stesso ragionamento fatto in precedenza 
     if(fingerprint && tagMSH){
 
-        sketchQuery.initFromFiles(queryFiles, parameters); // Nuova funzione per fingerprint
+        sketchFingerPrintQuery.initFromFiles(queryFiles, parameters); // Nuova funzione per fingerprint
     }
     else if (fingerprint && tagTXT)
     {
-        sketchQuery.initFromFingerprints(queryFiles, parameters); // Nuova funzione per fingerprint
+        sketchFingerPrintQuery.initFromFingerprints(queryFiles, parameters); // Nuova funzione per fingerprint
     }
     else
     {
@@ -268,14 +271,14 @@ int CommandDistance::run() const
     if ( warningCount > 0 && ! parameters.reads )
     {
     	warnKmerSize(parameters, *this, lengthMax, lengthMaxName, randomChance, kMin, warningCount);
-    }
+    }*/
     
     return 0;
 }
 
 void CommandDistance::writeOutput(CompareOutput * output, bool table, bool comment) const
 {
-    uint64_t i = output->indexQuery;
+    /*uint64_t i = output->indexQuery;
     uint64_t j = output->indexRef;
     
     for ( uint64_t k = 0; k < output->pairCount && i < output->sketchQuery.getReferenceCount(); k++ )
@@ -327,14 +330,16 @@ void CommandDistance::writeOutput(CompareOutput * output, bool table, bool comme
             j = 0;
             i++;
         }
-    }
+    }*/
     
     delete output;
 }
 
+
+
 CommandDistance::CompareOutput * compare(CommandDistance::CompareInput * input)
 {
-    const Sketch & sketchRef = input->sketchRef;
+    /*const Sketch & sketchRef = input->sketchRef;
     const Sketch & sketchQuery = input->sketchQuery;
     
     CommandDistance::CompareOutput * output = new CommandDistance::CompareOutput(input->sketchRef, input->sketchQuery, input->indexRef, input->indexQuery, input->pairCount);
@@ -357,14 +362,15 @@ CommandDistance::CompareOutput * compare(CommandDistance::CompareInput * input)
             j = 0;
             i++;
         }
-    }
+    }*/
+   return 0;
+    //return output;
     
-    return output;
 }
 
 void compareSketches(CommandDistance::CompareOutput::PairOutput * output, const Sketch::Reference & refRef, const Sketch::Reference & refQry, uint64_t sketchSize, int kmerSize, double kmerSpace, double maxDistance, double maxPValue)
 {
-    uint64_t i = 0;
+    /*uint64_t i = 0;
     uint64_t j = 0;
     uint64_t common = 0;
     uint64_t denom = 0;
@@ -426,13 +432,13 @@ void compareSketches(CommandDistance::CompareOutput::PairOutput * output, const 
         return;
     }
     
-    output->pass = true;
-}
+    output->pass = true;*/
 
+}
 
 double pValue(uint64_t x, uint64_t lengthRef, uint64_t lengthQuery, double kmerSpace, uint64_t sketchSize)
 {
-    if ( x == 0 )
+    /*if ( x == 0 )
     {
         return 1.;
     }
@@ -447,8 +453,10 @@ double pValue(uint64_t x, uint64_t lengthRef, uint64_t lengthQuery, double kmerS
 #else
     return gsl_cdf_binomial_Q(x - 1, r, sketchSize);
 #endif
-}
+*/
 
+return 0; 
+}
 
 bool containsMSH(const std::vector<std::string>& strVec) {
     
@@ -461,8 +469,6 @@ bool containsMSH(const std::vector<std::string>& strVec) {
     return flag;
 
 }
-
-
 
 bool containsTXT(const std::vector<std::string>& strVec){
     bool flag = false;

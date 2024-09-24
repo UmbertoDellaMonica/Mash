@@ -1,5 +1,6 @@
 #include "CommandScreen.h"
 #include "CommandDistance.h" // for pvalue
+#include "SketchFingerPrint.h"
 #include "Sketch.h"
 #include "kseq.h"
 #include <iostream>
@@ -64,6 +65,10 @@ int CommandScreen::run() const
     Sketch sketch;
     Sketch::Parameters parameters;
 
+
+    SketchFingerPrint sketchFingerPrint;
+    SketchFingerPrint::Parameters parametersFingerPrint;
+
     sketch.initFromFiles(refArgVector, parameters);
 
     string alphabet;
@@ -114,10 +119,12 @@ int CommandScreen::run() const
      */
 
     Sketch querySketch;
+    SketchFingerPrint queryFingerPrintSketch;
+
 
     if(fingerprint){
     
-        querySketch.initFromFingerprints(queryArgVector,parameters);
+        queryFingerPrintSketch.initFromFingerprints(queryArgVector,parametersFingerPrint);
     
     }else{
     

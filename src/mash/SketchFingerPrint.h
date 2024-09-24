@@ -1,13 +1,7 @@
-// Copyright © 2015, Battelle National Biodefense Institute (BNBI);
-// all rights reserved. Authored by: Brian Ondov, Todd Treangen,
-// Sergey Koren, and Adam Phillippy
-//
-// See the LICENSE.txt file included with this software for license information.
+#ifndef SketchFingerprint_h
+#define SketchFingerprint_h
 
-#ifndef Sketch_h
-#define Sketch_h
-
-#include "mash/capnp/MinHash.capnp.h"
+#include "mash/capnp/MinFingerPrintHash.capnp.h"
 #include "robin_hood.h"
 #include <map>
 #include <vector>
@@ -16,16 +10,22 @@
 #include "MinHashHeap.h"
 #include "ThreadPool.h"
 
-static const char * capnpHeader = "Cap'n Proto";
-static const int capnpHeaderLength = strlen(capnpHeader);
+static const char * capnpHeaderFingerPrint = "Cap'n Proto";
+static const int capnpHeaderFingerPrintLength = strlen(capnpHeaderFingerPrint);
 
-static const char * suffixSketch = ".msh";
-static const char * suffixSketchWindowed = ".msw";
+static const char * suffixFingerPrintSketch = ".msh";
+static const char * suffixFingerPrintSketchWindowed = ".msw";
 
-static const char * alphabetNucleotide = "ACGT";
-static const char * alphabetProtein = "ACDEFGHIKLMNPQRSTVWY";
+static const char * alphabetNucleotideFingerPrint = "ACGT";
+static const char * alphabetProteinFingerPrint = "ACDEFGHIKLMNPQRSTVWY";
 
-class Sketch
+// FingerPrint section 
+static const char * suffixFingerprint = ".txt";
+
+
+
+
+class SketchFingerPrint
 {
 public:
     
@@ -103,44 +103,37 @@ public:
         double targetCov;
         uint64_t genomeSize;
         bool counts;
+        bool fingerprint = false;
     };
     
-    struct PositionHash
-    {
-        PositionHash(uint32_t positionNew, hash_t hashNew) :
-            position(positionNew),
-            hash(hashNew)
-            {}
-
-        uint32_t position;
-        hash_t hash;
-    };
     
-    struct Locus
-    {
-        Locus(uint32_t sequenceNew, uint32_t positionNew)
-            :
-            sequence(sequenceNew),
-            position(positionNew)
-            {}
-        
-        uint32_t sequence;
-        uint32_t position;
-    };
     
-    struct Reference
-    {
+    struct Reference{
+        // ID della reference 
+        std::string id;
+        // Nome reference 
         std::string name;
+        // Commento della reference 
         std::string comment;
+        // Lunghezza della reference 
         uint64_t length;
-        HashList hashesSorted;
+        // Lista di SubSketch
+        std::vector<HashList> subSketch_list;
+
+        bool use64;
+        // Numero di subsketch
         std::vector<uint32_t> counts;
+        // Valore bool dei vari hash in sorting 
         bool countsSorted;
+
     };
+    
+
     
     struct SketchInput
     {
-    	SketchInput(std::vector<std::string> fileNamesNew, char * seqNew, uint64_t lengthNew, const std::string & nameNew, const std::string & commentNew, const Sketch::Parameters & parametersNew)
+
+    	SketchInput(std::vector<std::string> fileNamesNew, char * seqNew, uint64_t lengthNew, const std::string & nameNew, const std::string & commentNew, const SketchFingerPrint::Parameters & parametersNew)
     	:
     	fileNames(fileNamesNew),
     	seq(seqNew),
@@ -164,77 +157,148 @@ public:
     	
     	uint64_t length;
     	
+        std::string id;
+
     	std::string name;
-    	std::string comment;
     	
-    	Sketch::Parameters parameters;
+        std::string comment;
+    	
+    	SketchFingerPrint::Parameters parameters;
     };
     
     struct SketchOutput
     {
-    	std::vector<Reference> references;
-	    std::vector<std::vector<PositionHash>> positionHashesByReference;
+    	std::vector<Reference> references;    
     };
     
-    void getAlphabetAsString(std::string & alphabet) const;
-    uint32_t getAlphabetSize() const {return parameters.alphabetSize;}
+
+    /**
+     * initFromFingerprintsWithSingleHash - Ogni riferimento ha un insieme di Hash 
+     */
+    void initFromFingerprintsWithSingleHash(const std::vector<std::string> & files, const Parameters & parametersNew);
+
+    /**
+     * initFromFingerprints - Ogni riferimento ha un insieme di vettori di HashList 
+     */
+    void initFromFingerprints(const std::vector<std::string> & files, const Parameters & parametersNew);
+
+    void getAlphabetAsString(std::string & alphabet) const; // Esiste 
+
+    uint32_t getAlphabetSize() const {return parameters.alphabetSize;} 
+    
     bool getConcatenated() const {return parameters.concatenated;}
+    
     float getError() const {return parameters.error;}
-    int getHashCount() const {return lociByHash.size();}
+    
+    //int getHashCount() const {return lociByHash.size();}
+    
     uint32_t getHashSeed() const {return parameters.seed;}
-    const std::vector<Locus> & getLociByHash(hash_t hash) const;
+    
     float getMinHashesPerWindow() const {return parameters.minHashesPerWindow;}
-	int getMinKmerSize(uint64_t reference) const;
-	bool getPreserveCase() const {return parameters.preserveCase;}
-	double getRandomKmerChance(uint64_t reference) const;
+	
+    int getMinKmerSize(uint64_t reference) const;
+	
+    bool getPreserveCase() const {return parameters.preserveCase;}
+	
+    double getRandomKmerChance(uint64_t reference) const;
+    
+    
+    
     const Reference & getReference(uint64_t index) const {return references.at(index);}
+   
+
     uint64_t getReferenceCount() const {return references.size();}
+
     void getReferenceHistogram(uint64_t index, std::map<uint32_t, uint64_t> & histogram) const;
+    
+    
     uint64_t getReferenceIndex(std::string id) const;
+    
     int getKmerSize() const {return parameters.kmerSize;}
+    
     double getKmerSpace() const {return kmerSpace;}
+    
     bool getUse64() const {return parameters.use64;}
+    
     uint64_t getWindowSize() const {return parameters.windowSize;}
+    
     bool getNoncanonical() const {return parameters.noncanonical;}
+    
     bool hasHashCounts() const {return references.size() > 0 && references.at(0).counts.size() > 0;}
-    bool hasLociByHash(hash_t hash) const {return lociByHash.count(hash);}
-    int initFromFiles(const std::vector<std::string> & files, const Parameters & parametersNew, int verbosity = 0, bool enforceParameters = false, bool contain = false);
-    void initFromReads(const std::vector<std::string> & files, const Parameters & parametersNew);
-    uint64_t initParametersFromCapnp(const char * file);
+        
+    //int initFromFiles(const std::vector<std::string> & files, const Parameters & parametersNew, int verbosity = 0, bool enforceParameters = false, bool contain = false);
+    int initFromFingerPrintFiles(const std::vector<std::string> & files, const Parameters & parametersNew, int verbosity = 0, bool enforceParameters = false, bool contain = false);
+
+    uint64_t initParametersFingerPrintsFromCapnp(const char * file);
+
+    
+
+
+
     void setReferenceName(int i, const std::string name) {references[i].name = name;}
+    
     void setReferenceComment(int i, const std::string comment) {references[i].comment = comment;}
-	bool sketchFileBySequence(FILE * file, ThreadPool<Sketch::SketchInput, Sketch::SketchOutput> * threadPool);
-	void useThreadOutput(SketchOutput * output);
+	
+    void setReferenceId(int i, const std::string id) { references[i].id = id; }
+    
+    bool sketchFileBySequence(FILE * file, ThreadPool<SketchFingerPrint::SketchInput, SketchFingerPrint::SketchOutput> * threadPool);
+	
+    void useThreadOutput(SketchOutput * output);
+    
     void warnKmerSize(uint64_t lengthMax, const std::string & lengthMaxName, double randomChance, int kMin, int warningCount) const;
-    bool writeToFile() const;
-    int writeToCapnp(const char * file) const;
+
+    int writeToCapnpFingerPrint(const char * file) const;
+
     
 private:
     
-    void createIndex();
+    // Crea l'indice delle FingerPrint() 
+    void createIndexFingerPrint();
     
+    // Vettore dei riferimenti dello sketch 
     std::vector<Reference> references;
+    // Subsketch List all'interno dei programmi  
+    std::vector<HashList> subSketchList;
+
+
+    
     robin_hood::unordered_map<std::string, int> referenceIndecesById;
-    std::vector<std::vector<PositionHash>> positionHashesByReference;
-    robin_hood::unordered_map<hash_t, std::vector<Locus>> lociByHash;
+
+    std::unordered_map<std::string, std::pair<int, int>> subSketchIndecesById; // Indice per i subSketch
     
     Parameters parameters;
+
     double kmerSpace;
+
     std::string file;
 };
 
-void addMinHashes(MinHashHeap & minHashHeap, char * seq, uint64_t length, const Sketch::Parameters & parameters);
-void getMinHashPositions(std::vector<Sketch::PositionHash> & loci, char * seq, uint32_t length, const Sketch::Parameters & parameters, int verbosity = 0);
+void addMinHashes(MinHashHeap & minHashHeap, char * seq, uint64_t length, const SketchFingerPrint::Parameters & parameters);
+
+//void getMinHashPositions(std::vector<SketchFingerPrint::PositionHash> & loci, char * seq, uint32_t length, const Sketch::Parameters & parameters, int verbosity = 0);
+
 bool hasSuffix(std::string const & whole, std::string const & suffix);
-Sketch::SketchOutput * loadCapnp(Sketch::SketchInput * input);
+
+
+
+
+SketchFingerPrint::SketchOutput * loadCapnpFingerPrint(SketchFingerPrint::SketchInput * input);
+
 void reverseComplement(const char * src, char * dest, int length);
-void setAlphabetFromString(Sketch::Parameters & parameters, const char * characters);
-void setMinHashesForReference(Sketch::Reference & reference, const MinHashHeap & hashes);
-Sketch::SketchOutput * sketchFile(Sketch::SketchInput * input);
-Sketch::SketchOutput * sketchSequence(Sketch::SketchInput * input);
+
+void setAlphabetFromString(SketchFingerPrint::Parameters & parameters, const char * characters);
+
+void setMinHashesForReference(SketchFingerPrint::Reference & reference, const MinHashHeap & hashes);
+
+SketchFingerPrint::SketchOutput * sketchFile(SketchFingerPrint::SketchInput * input);
+
+SketchFingerPrint::SketchOutput * sketchSequence(SketchFingerPrint::SketchInput * input);
+
 
 int def(int fdSource, int fdDest, int level);
+
 int inf(int fdSource, int fdDest);
+
 void zerr(int ret);
 
 #endif

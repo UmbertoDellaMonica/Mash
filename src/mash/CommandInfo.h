@@ -9,6 +9,7 @@
 
 #include "Command.h"
 #include "Sketch.h"
+#include "SketchFingerPrint.h"
 
 namespace mash {
 
@@ -23,7 +24,11 @@ public:
 private:
 	
 	int printCounts(const Sketch & sketch) const;
-	int writeJson(const Sketch & sketch) const;
+    int writeJson(const Sketch & sketch) const;
+
+
+	int printFingerPrintCounts(const SketchFingerPrint & sketch) const;
+    int writeFingerPrintJson(const SketchFingerPrint & sketch) const;
 };
 
 } // namespace mash

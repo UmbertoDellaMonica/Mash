@@ -6,6 +6,7 @@
 
 #include "CommandTaxScreen.h"
 #include "CommandDistance.h" // for pvalue
+#include "SketchFingerPrint.h"
 #include "Sketch.h"
 #include "kseq.h"
 #include "taxdb.hpp"
@@ -80,11 +81,13 @@ int CommandTaxScreen::run() const
 
     Sketch sketch;
     Sketch::Parameters parameters;
+    SketchFingerPrint sketchFingerprint;
+    SketchFingerPrint::Parameters parametersFingerprint;
 
     if (isFingerprint)
     {
         // Usa fingerprints se l'opzione è attiva
-        sketch.initFromFingerprints(refArgVector, parameters);
+        sketchFingerprint.initFromFingerprints(refArgVector, parametersFingerprint);
     }
     else
     {
@@ -95,6 +98,9 @@ int CommandTaxScreen::run() const
     string alphabet;
     sketch.getAlphabetAsString(alphabet);
     setAlphabetFromString(parameters, alphabet.c_str());
+
+    sketchFingerprint.getAlphabetAsString(alphabet);
+    setAlphabetFromString(parameters,alphabet.c_str());
 
     parameters.parallelism = options.at("threads").getArgumentAsNumber();
     parameters.kmerSize = sketch.getKmerSize();

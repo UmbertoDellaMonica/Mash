@@ -6,6 +6,7 @@
 
 #include "CommandSketch.h"
 #include "Sketch.h"
+#include "SketchFingerPrint.h"
 #include "sketchParameterSetup.h"
 #include <iostream>
 
@@ -49,6 +50,10 @@ int CommandSketch::run() const
     Sketch::Parameters parameters;
     parameters.counts = options.at("counts").active;
 
+
+    SketchFingerPrint::Parameters parametersFingerprint;
+    parametersFingerprint.counts = options.at("counts").active;
+
     if (sketchParameterSetup(parameters, *(Command *)this))
     {
         return 1;
@@ -68,6 +73,8 @@ int CommandSketch::run() const
     }
 
     Sketch sketch;
+    SketchFingerPrint sketchFingerPrint;
+
 
     if (parameters.reads)
     {
@@ -75,7 +82,7 @@ int CommandSketch::run() const
     }
     else if (fingerprint)
     {
-        sketch.initFromFingerprints(files, parameters); // Nuova funzione per fingerprint
+        sketchFingerPrint.initFromFingerprints(files, parametersFingerprint); // Nuova funzione per fingerprint
     }
     else
     {
@@ -116,7 +123,14 @@ int CommandSketch::run() const
     }
 
     cerr << "Writing to " << prefix << "..." << endl;
-    sketch.writeToCapnp(prefix.c_str());
+
+
+
+        if(!fingerprint){
+        sketch.writeToCapnp(prefix.c_str());
+        }else{
+        sketchFingerPrint.writeToCapnpFingerPrint(prefix.c_str());
+        }
 
     return 0;
 }

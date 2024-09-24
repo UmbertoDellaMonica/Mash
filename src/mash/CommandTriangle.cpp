@@ -1,5 +1,6 @@
 #include "CommandTriangle.h"
 #include "Sketch.h"
+#include "SketchFingerPrint.h"
 #include "sketchParameterSetup.h"
 #include <iostream>
 #include <zlib.h>
@@ -58,6 +59,7 @@ int CommandTriangle::run() const
     }
 
     Sketch::Parameters parameters;
+    SketchFingerPrint::Parameters parametersFingerPrint;
     
     if ( sketchParameterSetup(parameters, *(Command *)this) )
     {
@@ -70,6 +72,7 @@ int CommandTriangle::run() const
     }
 
     Sketch sketch;
+    SketchFingerPrint sketchFingerPrint;
     
     // Vecchie variabili reintegrate
     uint64_t lengthMax;
@@ -108,17 +111,17 @@ int CommandTriangle::run() const
     */
    if(fingerprint && containsExtensionMSH(queryFiles)){
         
-        sketch.initFromFiles(queryFiles,parameters);
+        sketchFingerPrint.initFromFingerPrintFiles(queryFiles,parametersFingerPrint);
    }
    /**
     *  FingerPrint Option & txt
     */   
    else if( fingerprint && containsExtensionTXT(queryFiles)){
         
-        sketch.initFromFingerprints(queryFiles,parameters);
+        sketchFingerPrint.initFromFingerprints(queryFiles,parametersFingerPrint);
    }
     else if (fingerprint) {
-        sketch.initFromFingerprints(queryFiles, parameters); // Caricamento fingerprint
+        sketchFingerPrint.initFromFingerprints(queryFiles, parametersFingerPrint); // Caricamento fingerprint
     } else {
         sketch.initFromFiles(queryFiles, parameters); // Caricamento sequenze genomiche
     }
